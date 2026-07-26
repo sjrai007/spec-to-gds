@@ -2,6 +2,8 @@
 
 An autonomous Claude Code agent that takes a digital-logic spec — a plain-English sentence, or RTL you've already written — all the way to a verified GDSII layout: synthesis, formal equivalence checking, floorplan/place/CTS/route, and GDS merge. Runs unattended, natively, on macOS (arm64), using a from-source build of [OpenROAD](https://github.com/The-OpenROAD-Project/OpenROAD) — no Docker, no emulation.
 
+It's driven by Claude Code running [Claude Fable 5](https://www.anthropic.com/), unattended against a fixed toolchain: [Yosys](https://github.com/YosysHQ/yosys) for synthesis, [Icarus Verilog](http://iverilog.icarus.com/) for simulation, the native `openroad` binary for physical design, and [KLayout](https://www.klayout.de/) for the final GDS merge/DRC.
+
 ## No human in the loop
 
 The entire input, both times this has been run, was one sentence typed into a terminal:
@@ -11,7 +13,7 @@ spec-to-gds counter8 "8-bit up-counter, asynchronous active-low reset, synchrono
 spec-to-gds counter4sync "4-bit synchronous binary up-counter: clk, synchronous active-high reset (rst), synchronous enable (en) - counter increments on rising clk edge only when en=1 and rst=0, resets to 0 synchronously on the clk edge when rst=1, holds value when en=0. count[3:0] registered output."
 ```
 
-Everything after that ran unsupervised, in a single [Claude Fable 5](https://www.anthropic.com/) process launched with `--dangerously-skip-permissions`: writing the RTL, writing its own testbench, simulating it, synthesizing it, formally proving the netlist matches the RTL, driving OpenROAD through floorplan/place/CTS/route, merging the routed design into GDS, and re-simulating the *final routed* netlist to prove physical implementation didn't break anything. No human touched a tool in between, and no human fixed anything when a stage went sideways — the agent hit real problems on both runs (a testbench race, a Liberty blackbox issue on the equivalence check, KLayout hanging headless) and diagnosed and resolved each one itself before continuing.
+Everything after that ran unsupervised, in a single [Claude Fable 5](https://www.anthropic.com/) process: writing the RTL, writing its own testbench, simulating it, synthesizing it, formally proving the netlist matches the RTL, driving OpenROAD through floorplan/place/CTS/route, merging the routed design into GDS, and re-simulating the *final routed* netlist to prove physical implementation didn't break anything. No human touched a tool in between, and no human fixed anything when a stage went sideways — the agent hit real problems on both runs (a testbench race, a Liberty blackbox issue on the equivalence check, KLayout hanging headless) and diagnosed and resolved each one itself before continuing.
 
 The two runs also aren't the same design copy-pasted twice. `counter8` has an *asynchronous* reset; `counter4sync` has a *synchronous* one. The agent noticed the difference on its own — it synthesized `counter8` to async-reset `DFFR_X1` flops and `counter4sync` to plain `DFF_X1` flops with reset folded into the D-input logic, and it wrote a testbench for `counter4sync` that specifically proves the sync-reset *timing* (asserting reset mid-cycle and checking the counter does **not** clear until the next clock edge) — a distinction nobody told it to test for. That's the bar this repo is trying to hold itself to: not "the tool ran," but "the agent understood the spec."
 

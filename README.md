@@ -2,7 +2,7 @@
 
 An autonomous Claude Code agent that takes a digital-logic spec — RTL you've already written, or just a natural-language description — all the way to a verified GDSII layout: synthesis, formal equivalence checking, floorplan/place/CTS/route, and GDS merge. Runs unattended, natively, on macOS (arm64), using a from-source build of [OpenROAD](https://github.com/The-OpenROAD-Project/OpenROAD) — no Docker, no emulation.
 
-It's driven by Claude Code running [Claude Fable 5](https://www.anthropic.com/), unattended (`--dangerously-skip-permissions`) against a fixed toolchain: [Yosys](https://github.com/YosysHQ/yosys) for synthesis, [Icarus Verilog](http://iverilog.icarus.com/) for simulation, the native `openroad` binary for physical design, and [KLayout](https://www.klayout.de/) for the final GDS merge/DRC.
+It's driven by Claude Code running [Claude Fable 5](https://www.anthropic.com/), unattended against a fixed toolchain: [Yosys](https://github.com/YosysHQ/yosys) for synthesis, [Icarus Verilog](http://iverilog.icarus.com/) for simulation, the native `openroad` binary for physical design, and [KLayout](https://www.klayout.de/) for the final GDS merge/DRC.
 
 ## Why this exists
 

@@ -1,0 +1,23 @@
+**Flow complete — `counter4sync.gds` produced, every verification stage green, single pass with no iterations needed.**
+
+Final GDS: `/Users/you/Documents/WARD/counter4sync_rtl2gds/counter4sync.gds` (85 KB, top-cell bbox verified 45.03 × 44.80 µm). Layout image: `counter4sync_layout.png`. Live log kept in `progress.md` throughout.
+
+## Summary
+
+| Metric | Value |
+|---|---|
+| Cell count | 18 functional (4× DFF_X1, 11 combinational, 3× BUF_X4 clock tree) + 48 endcaps + 220 fill = 286 placed |
+| Die area | 45.03 × 44.80 µm = 2017 µm² (std-cell area 48 µm², 4 % utilization) |
+| Timing | 0.5 ns clock (2 GHz) target: setup **WNS +0.238 ns**, hold **WNS +0.066 ns**, **TNS 0**, setup skew −0.000 ns → **Fmax ≈ 3.8 GHz** (0.26 ns critical path DFF→AND4→XNOR2→NOR2→DFF) |
+| Power | 0.192 mW @ 2 GHz (68 % clock, 29 % sequential, 3 % combinational) |
+| Violations | Route DRC **0** (empty router DRC report), antenna **0** net / **0** pin, GDS min-width/min-spacing DRC **0**, DRVs **0** |
+
+## Verification chain (all independently checked)
+
+1. **RTL sim** — self-checking testbench passes, including an explicit proof the reset is *synchronous* (rst asserted mid-cycle does not clear the count until the next posedge) and that rst wins over en.
+2. **Formal equivalence** — Yosys SAT proved RTL ⇄ synthesized netlist (4/4 $equiv cells).
+3. **Post-route STA** on OpenRCX-extracted parasitics — timing closed with margin.
+4. **DRC** — router report empty; KLayout min-width/spacing checks on the merged GDS clean across metal1–metal7 (metal8–10 unused).
+5. **Post-layout gate-level sim** — the final routed netlist (including CTS buffers) re-passes the original RTL testbench using Liberty-derived cell models.
+
+Notes from the run: synthesis correctly produced plain DFF_X1 flops (the synchronous reset folds into D-input logic — 15 cells, 30 µm² pre-PnR); I reused the counter8 run's proven die/core geometry so metal4 and metal7 PDN straps land in-core (the single metal7 poly in DRC confirms it); the resizer found zero setup/hold violations, so no repair buffers were needed. The known KLayout-app-hangs-headless issue was avoided via the pip `klayout` module in a project-local `.venv`.

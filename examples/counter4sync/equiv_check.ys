@@ -1,0 +1,23 @@
+# Formal equivalence check: counter4sync.v (RTL) vs counter4sync_synth.v (Nangate45 netlist)
+# Run: yosys equiv_check.ys — expect "Equivalence successfully proven!"
+read_verilog counter4sync.v
+hierarchy -top counter4sync
+proc; flatten; opt
+async2sync
+design -stash gold
+design -reset
+read_liberty -wb -ignore_miss_func /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+read_verilog counter4sync_synth.v
+# liberty cells import as boxed modules; unbox them (=* includes boxes) so flatten inlines them
+setattr -mod -unset blackbox -unset whitebox =*
+hierarchy -top counter4sync
+flatten; proc; opt
+async2sync
+design -stash gate
+design -copy-from gold -as gold counter4sync
+design -copy-from gate -as gate counter4sync
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert

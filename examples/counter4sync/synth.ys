@@ -1,0 +1,13 @@
+# Yosys synthesis script: counter4sync -> Nangate45 mapped netlist
+# read_liberty first so check -assert knows cell pin directions (counter8 gotcha)
+read_liberty -lib /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+read_verilog counter4sync.v
+hierarchy -check -top counter4sync
+synth -top counter4sync -flatten
+dfflibmap -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+abc -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib -D 500
+setundef -zero
+opt_clean -purge
+stat -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+check -assert
+write_verilog -noattr counter4sync_synth.v

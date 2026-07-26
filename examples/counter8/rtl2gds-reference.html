@@ -1,0 +1,764 @@
+<title>RTL-to-GDS Reference — counter8 on Native OpenROAD</title>
+
+<style>
+  :root {
+    --ground: #eef1ef;
+    --ground-raised: #e3e8e4;
+    --ink: #12181a;
+    --ink-dim: #4c5a56;
+    --copper: #ab5326;
+    --copper-strong: #8a4118;
+    --slate: #3f6274;
+    --verified: #2f6e4d;
+    --line: #c7cfc9;
+    --code-bg: #e4e9e3;
+    --shadow: rgba(18, 24, 26, 0.08);
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0e1416;
+    --ground-raised: #161f22;
+    --ink: #e9edea;
+    --ink-dim: #a9b6b1;
+    --copper: #dd8955;
+    --copper-strong: #f0a06a;
+    --slate: #8fb4c4;
+    --verified: #5fb283;
+    --line: #2a3538;
+    --code-bg: #172023;
+    --shadow: rgba(0, 0, 0, 0.4);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1416;
+      --ground-raised: #161f22;
+      --ink: #e9edea;
+      --ink-dim: #a9b6b1;
+      --copper: #dd8955;
+      --copper-strong: #f0a06a;
+      --slate: #8fb4c4;
+      --verified: #5fb283;
+      --line: #2a3538;
+      --code-bg: #172023;
+      --shadow: rgba(0, 0, 0, 0.4);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--ground);
+    color: var(--ink);
+  }
+
+  body {
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+
+  h1, h2, h3, h4, .label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    text-wrap: balance;
+    font-weight: 600;
+  }
+
+  a { color: var(--copper); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--copper);
+    outline-offset: 2px;
+  }
+
+  /* ---------- shell layout ---------- */
+
+  .shell {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  @media (max-width: 900px) {
+    .shell { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2rem 1.5rem;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .brand .chip-mark {
+    width: 34px;
+    height: 34px;
+    border: 2px solid var(--copper);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .brand .chip-mark::before, .brand .chip-mark::after {
+    content: "";
+    position: absolute;
+    background: var(--copper);
+  }
+  .brand .chip-mark::before { width: 10px; height: 2px; top: 8px; left: -8px; }
+  .brand .chip-mark::after { width: 10px; height: 2px; bottom: 8px; right: -8px; }
+
+  .brand-row { display: flex; align-items: center; gap: 0.75rem; }
+
+  .brand h1 {
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+
+  .brand .sub {
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+    letter-spacing: 0.01em;
+  }
+
+  .toc-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .toc-group .eyebrow {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--ink-dim);
+    margin-bottom: 0.25rem;
+  }
+  .toc-group a {
+    text-decoration: none;
+    color: var(--ink-dim);
+    font-size: 0.86rem;
+    padding: 0.3rem 0.5rem;
+    margin: 0 -0.5rem;
+    border-left: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .toc-group a:hover {
+    color: var(--ink);
+    border-left-color: var(--copper);
+    background: var(--ground-raised);
+  }
+
+  .theme-note {
+    margin-top: auto;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+  }
+
+  main {
+    padding: 3rem clamp(1.25rem, 4vw, 4.5rem) 6rem;
+    max-width: 920px;
+  }
+
+  header.hero {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header.hero .eyebrow {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--copper);
+    margin-bottom: 0.75rem;
+  }
+
+  header.hero h1 {
+    font-size: clamp(1.6rem, 3vw, 2.1rem);
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.01em;
+  }
+
+  header.hero p.dek {
+    font-family: ui-sans-serif, sans-serif;
+    font-size: 1.02rem;
+    color: var(--ink-dim);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-top: 1.75rem;
+  }
+  .stat-row .stat {
+    background: var(--ground);
+    padding: 0.9rem 1rem;
+  }
+  .stat .stat-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    margin-bottom: 0.3rem;
+  }
+  .stat .stat-value {
+    font-family: ui-monospace, monospace;
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--copper-strong);
+  }
+
+  section { margin: 3.25rem 0; scroll-margin-top: 1.5rem; }
+  section > h2 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--slate);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 1.5rem;
+  }
+  section > h2::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    margin: 2rem 0 0.75rem;
+    color: var(--ink);
+  }
+  h3 .step-no {
+    color: var(--copper);
+    margin-right: 0.5rem;
+  }
+
+  p { margin: 0.9rem 0; max-width: 66ch; }
+  p.tight { max-width: none; }
+
+  ul, ol { max-width: 66ch; padding-left: 1.3rem; }
+  li { margin: 0.4rem 0; }
+
+  strong { color: var(--ink); font-weight: 650; }
+
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--copper);
+    background: var(--ground-raised);
+    padding: 0.9rem 1.1rem;
+    margin: 1.25rem 0;
+    font-size: 0.92rem;
+    max-width: 66ch;
+  }
+  .callout.verified { border-left-color: var(--verified); }
+  .callout .callout-label {
+    font-family: ui-monospace, monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--copper);
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+  .callout.verified .callout-label { color: var(--verified); }
+
+  /* ---------- code blocks ---------- */
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 0.95rem 1.1rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    position: relative;
+  }
+  pre code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    color: var(--ink);
+    white-space: pre;
+  }
+  code.inline {
+    font-family: ui-monospace, monospace;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 0.1rem 0.35rem;
+    font-size: 0.87em;
+    color: var(--copper-strong);
+  }
+  .cmd-file {
+    font-family: ui-monospace, monospace;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.01em;
+  }
+  .cmd-file::before { content: "$ "; color: var(--slate); }
+
+  /* ---------- tables ---------- */
+
+  .table-wrap { overflow-x: auto; margin: 1.25rem 0 1.75rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+    min-width: 480px;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    font-family: ui-monospace, monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    font-weight: 600;
+  }
+  td.num, th.num { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+
+  .pill {
+    display: inline-block;
+    font-family: ui-monospace, monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.03em;
+    padding: 0.12rem 0.5rem;
+    border: 1px solid currentColor;
+    color: var(--verified);
+  }
+  .pill.warn { color: var(--copper); }
+  .pill.neutral { color: var(--ink-dim); }
+
+  /* ---------- pipeline diagram ---------- */
+
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 1.5rem 0 2rem;
+    border: 1px solid var(--line);
+  }
+  .pipeline .pstage {
+    flex: 1 1 130px;
+    padding: 0.85rem 0.9rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .pipeline .pstage:last-child { border-right: none; }
+  .pipeline .pstage .pnum {
+    font-family: ui-monospace, monospace;
+    font-size: 0.68rem;
+    color: var(--copper);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .pipeline .pstage .pname {
+    font-family: ui-monospace, monospace;
+    font-size: 0.82rem;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .pipeline .pstage .ptool {
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+  }
+
+  /* ---------- file tree ---------- */
+
+  .filetree {
+    font-family: ui-monospace, monospace;
+    font-size: 0.83rem;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    padding: 1rem 1.1rem;
+    margin: 1rem 0 1.75rem;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .filetree .dim { color: var(--ink-dim); }
+  .filetree .fp { color: var(--slate); }
+
+  .toolgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin: 1.25rem 0 1.75rem;
+  }
+  .toolcard {
+    background: var(--ground);
+    padding: 1rem 1.1rem;
+  }
+  .toolcard .tname {
+    font-family: ui-monospace, monospace;
+    font-size: 0.92rem;
+    color: var(--copper-strong);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .toolcard .trole { font-size: 0.82rem; color: var(--ink-dim); }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="toc">
+    <div class="brand">
+      <div class="brand-row">
+        <div class="chip-mark" aria-hidden="true"></div>
+        <h1>spec&#8209;to&#8209;gds</h1>
+      </div>
+      <span class="sub">RTL&rarr;GDS reference &middot; native OpenROAD on macOS</span>
+    </div>
+
+    <div class="toc-group">
+      <div class="eyebrow">Orientation</div>
+      <a href="#overview">Overview</a>
+      <a href="#concepts">Concepts</a>
+    </div>
+
+    <div class="toc-group">
+      <div class="eyebrow">The pipeline</div>
+      <a href="#pipeline">Stage-by-stage walkthrough</a>
+      <a href="#commands">Full command reference</a>
+      <a href="#files">Output file guide</a>
+    </div>
+
+    <div class="toc-group">
+      <div class="eyebrow">Outcome</div>
+      <a href="#results">Results &amp; Kimi K3 comparison</a>
+    </div>
+
+    <div class="toc-group">
+      <div class="eyebrow">Operating notes</div>
+      <a href="#troubleshooting">Troubleshooting log</a>
+      <a href="#toolchain">What got installed</a>
+      <a href="#agent">Reusable agent</a>
+    </div>
+
+    <div class="theme-note">Compiled from the counter8 build session &middot; Nangate45 &middot; native arm64</div>
+  </nav>
+
+  <main>
+    <header class="hero" id="overview">
+      <div class="eyebrow">Reference document</div>
+      <h1>Taking a spec from Verilog to a verified GDSII layout, natively, on a Mac</h1>
+      <p class="dek">A working record of the toolchain, the pipeline, and every command &mdash; built while shepherding an 8-bit counter through synthesis, place-and-route, and GDS merge using OpenROAD compiled natively for Apple Silicon, no Docker, no emulation.</p>
+
+      <div class="stat-row">
+        <div class="stat"><div class="stat-label">Die area</div><div class="stat-value">0.002&nbsp;mm&sup2;</div></div>
+        <div class="stat"><div class="stat-label">Cells</div><div class="stat-value">33</div></div>
+        <div class="stat"><div class="stat-label">Fmax</div><div class="stat-value">&asymp;2.7&nbsp;GHz</div></div>
+        <div class="stat"><div class="stat-label">DRC violations</div><div class="stat-value">0</div></div>
+        <div class="stat"><div class="stat-label">Wall clock</div><div class="stat-value">&asymp;17&nbsp;min</div></div>
+      </div>
+    </header>
+
+    <section id="concepts">
+      <h2>Concepts</h2>
+
+      <h3>What Docker / an image actually is</h3>
+      <p>An <strong>image</strong> is a frozen blueprint &mdash; a saved snapshot of a filesystem, OS, and installed tools, not running yet. A <strong>container</strong> is a live instance made from that blueprint, the way an object is an instance of a class. Docker's purpose: package a whole working environment so it runs identically on any machine, without the user hand-installing every dependency themselves.</p>
+      <p>We started this project driving OpenROAD through Docker via its official <code class="inline">claude.sh</code> wrapper. It worked for the tool itself, but OpenROAD's published image is <strong>amd64&#8209;only</strong> &mdash; no arm64 build exists &mdash; so on Apple Silicon every instruction, including Claude Code's own binary startup, had to run through QEMU CPU emulation. A one-line test prompt burned 20+ minutes of continuous 99.8% CPU before even opening a network connection. That's what pushed the whole project to a native Bazel build instead.</p>
+
+      <h3>Package managers vs. raw binaries</h3>
+      <p>Not everything "installed" on a system goes through a package manager. Three different mechanisms showed up across this session:</p>
+      <div class="toolgrid">
+        <div class="toolcard"><span class="tname">Homebrew (brew)</span><span class="trole">OS-level, language-agnostic. Tracks versions, handles <code class="inline">brew uninstall</code>/<code class="inline">upgrade</code>. Used for Yosys, Icarus Verilog, groff, pandoc, bazelisk.</span></div>
+        <div class="toolcard"><span class="tname">npm (global)</span><span class="trole">Language-specific &mdash; needs Node already present. <code class="inline">claude</code> itself is an npm package; it only <em>looks</em> Homebrew-managed because Node's own install location happens to be under <code class="inline">/opt/homebrew</code>.</span></div>
+        <div class="toolcard"><span class="tname">curl&#8209;script / raw build</span><span class="trole">No package manager at all. <code class="inline">kimi</code> (Kimi Code CLI) landed via an install script into its own directory. The <code class="inline">openroad</code> binary isn't installed by anything &mdash; it's a raw Bazel build output sitting in <code class="inline">bazel-bin/</code>, untracked by any manager.</span></div>
+      </div>
+
+      <div class="callout">
+        <span class="callout-label">Why this mattered here</span>
+        Nothing tracks the <code class="inline">openroad</code> binary as an "installed tool" &mdash; no <code class="inline">brew list</code>, no <code class="inline">npm list -g</code> entry. To remove it, you'd delete the folder or run <code class="inline">bazel clean</code>. Worth remembering before assuming a package manager can account for everything on the machine.
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>Stage-by-stage walkthrough</h2>
+      <p>Every stage was independently checked against the one before it &mdash; not just "the tool exited zero."</p>
+
+      <div class="pipeline">
+        <div class="pstage"><span class="pnum">01</span><span class="pname">RTL</span><span class="ptool">written by hand</span></div>
+        <div class="pstage"><span class="pnum">02</span><span class="pname">RTL sim</span><span class="ptool">Icarus Verilog</span></div>
+        <div class="pstage"><span class="pnum">03</span><span class="pname">Synthesis</span><span class="ptool">Yosys</span></div>
+        <div class="pstage"><span class="pnum">04</span><span class="pname">Equivalence</span><span class="ptool">Yosys (SAT)</span></div>
+        <div class="pstage"><span class="pnum">05</span><span class="pname">Floorplan&rarr;Route</span><span class="ptool">OpenROAD</span></div>
+        <div class="pstage"><span class="pnum">06</span><span class="pname">GDS merge</span><span class="ptool">KLayout (pip)</span></div>
+        <div class="pstage"><span class="pnum">07</span><span class="pname">Gate-level sim</span><span class="ptool">Icarus Verilog</span></div>
+        <div class="pstage"><span class="pnum">08</span><span class="pname">Render</span><span class="ptool">KLayout</span></div>
+      </div>
+
+      <h3><span class="step-no">01</span>RTL authoring</h3>
+      <p>Fable&nbsp;5 wrote <code class="inline">counter8.v</code> directly to spec: an 8-bit up-counter with asynchronous active-low reset and a synchronous enable. No tool invocation &mdash; just code.</p>
+
+      <h3><span class="step-no">02</span>Pre-synthesis simulation &mdash; Icarus Verilog</h3>
+      <p>A self-checking testbench covering reset hold, enable gating, increment, hold, 255&rarr;0 wraparound, and a mid-cycle async reset assert/release.</p>
+      <div class="callout">
+        <span class="callout-label">Caught here</span>
+        A testbench race &mdash; reset was released exactly on a clock edge. The RTL itself was correct; the fix was in the testbench.
+      </div>
+
+      <h3><span class="step-no">03</span>Synthesis &mdash; Yosys</h3>
+      <p>Mapped to Nangate45 standard cells: <code class="inline">synth -flatten</code> &rarr; <code class="inline">dfflibmap</code> &rarr; <code class="inline">abc -liberty ...</code> &rarr; <code class="inline">opt_clean</code>. Result: 24 cells, 63.6&nbsp;&micro;m&sup2; of cell area.</p>
+      <div class="callout">
+        <span class="callout-label">Gotcha</span>
+        <code class="inline">check -assert</code> initially flagged <code class="inline">count[7:0]</code> as undriven &mdash; cosmetic, caused by Yosys not yet knowing Liberty cell pin directions. Fixed by reading the Liberty file before the netlist.
+      </div>
+
+      <h3><span class="step-no">04</span>Formal equivalence &mdash; Yosys, SAT-based</h3>
+      <p>Not simulation &mdash; a mathematical proof that the synthesized netlist matches the RTL. All 8 <code class="inline">$equiv</code> cells proven.</p>
+      <div class="callout">
+        <span class="callout-label">Gotchas</span>
+        Needed <code class="inline">-ignore_miss_func</code> (clock-gate cells have no function), <code class="inline">async2sync</code> on both sides (SAT can't model async flops directly), and unboxing Liberty whitebox modules so <code class="inline">flatten</code> would inline them.
+      </div>
+
+      <h3><span class="step-no">05</span>Floorplan &rarr; Place &rarr; CTS &rarr; Route &mdash; OpenROAD</h3>
+      <p>Driven by a Tcl script sourcing OpenROAD's own reference <code class="inline">test/flow.tcl</code>, constrained to a 0.6&nbsp;ns clock. Single pass, no iteration needed. Closed at <strong>setup&nbsp;WNS&nbsp;+0.230&nbsp;ns</strong>, hold&nbsp;+0.001&nbsp;ns, 0 router DRVs, 0 antenna violations.</p>
+
+      <h3><span class="step-no">06</span>GDS merge &mdash; KLayout</h3>
+      <p>Combined the routed DEF with the Nangate45 standard-cell GDS shapes into <code class="inline">counter8.gds</code>.</p>
+      <div class="callout">
+        <span class="callout-label">Gotcha</span>
+        The KLayout <strong>macOS app hangs when run headless</strong>, even with quarantine removed. Worked around by installing the <code class="inline">klayout</code> pip package into a project-local venv and driving <code class="inline">def2stream.py</code>'s <code class="inline">merge_gds()</code> directly &mdash; same engine, no GUI.
+      </div>
+
+      <h3><span class="step-no">07</span>Post-layout gate-level simulation</h3>
+      <p>The <em>routed</em> netlist &mdash; now including CTS and hold-fix buffers not present pre-route &mdash; re-run against the original testbench, using Liberty-derived behavioral models. Passed.</p>
+
+      <h3><span class="step-no">08</span>Layout render</h3>
+      <p>A PNG snapshot for human inspection, generated via KLayout.</p>
+    </section>
+
+    <section id="commands">
+      <h2>Full command reference</h2>
+      <p>Every path below is absolute and verified against the actual project files &mdash; not reconstructed from memory.</p>
+
+      <h3>View the RTL</h3>
+      <pre><code>cat /Users/you/Documents/WARD/counter8_rtl2gds/counter8.v</code></pre>
+
+      <h3>Pre-synthesis simulation</h3>
+      <pre><code>iverilog -o /Users/you/Documents/WARD/counter8_rtl2gds/counter8_tb.vvp \
+  /Users/you/Documents/WARD/counter8_rtl2gds/counter8_tb.v \
+  /Users/you/Documents/WARD/counter8_rtl2gds/counter8.v
+
+vvp /Users/you/Documents/WARD/counter8_rtl2gds/counter8_tb.vvp</code></pre>
+
+      <h3>Synthesis (cwd must be the project dir &mdash; script uses relative filenames)</h3>
+      <pre><code>cd /Users/you/Documents/WARD/counter8_rtl2gds
+yosys synth.ys
+cat /Users/you/Documents/WARD/counter8_rtl2gds/counter8_synth.v</code></pre>
+
+      <h3>Formal equivalence check</h3>
+      <pre><code>cd /Users/you/Documents/WARD/counter8_rtl2gds
+yosys equiv_check.ys</code></pre>
+
+      <h3>Floorplan &rarr; Place &rarr; CTS &rarr; Route</h3>
+      <div class="callout warn"><span class="callout-label">cwd requirement</span>Must run with cwd = <code class="inline">OpenROAD/test</code>, not the project directory &mdash; it sources OpenROAD's own reference flow helpers by relative path.</div>
+      <pre><code>cd /Users/you/Documents/WARD/OpenROAD/test
+RESULTS_DIR=/Users/you/Documents/WARD/counter8_rtl2gds/results \
+  /Users/you/Documents/WARD/OpenROAD/bazel-bin/openroad \
+  /Users/you/Documents/WARD/counter8_rtl2gds/counter8_run.tcl</code></pre>
+
+      <h3>Inspect a placement/route checkpoint interactively</h3>
+      <pre><code>/Users/you/Documents/WARD/OpenROAD/bazel-bin/openroad -gui
+&gt; read_db /Users/you/Documents/WARD/counter8_rtl2gds/results/counter8_nangate45_cts-tcl.db</code></pre>
+
+      <h3>Read text-based outputs directly</h3>
+      <pre><code>cat /Users/you/Documents/WARD/counter8_rtl2gds/counter8_final.def
+cat /Users/you/Documents/WARD/counter8_rtl2gds/results/counter8_nangate45-tcl.spef
+cat /Users/you/Documents/WARD/counter8_rtl2gds/results/counter8_nangate45_route_drc-tcl.rpt</code></pre>
+
+      <h3>GDS merge (needs the project's own Python venv)</h3>
+      <pre><code>/Users/you/Documents/WARD/counter8_rtl2gds/.venv/bin/python3 \
+  /Users/you/Documents/WARD/counter8_rtl2gds/run_gds_merge.py</code></pre>
+
+      <h3>View the final GDS</h3>
+      <pre><code>open -a KLayout /Users/you/Documents/WARD/counter8_rtl2gds/counter8.gds</code></pre>
+
+      <h3>Post-layout gate-level simulation</h3>
+      <pre><code>iverilog -o /Users/you/Documents/WARD/counter8_rtl2gds/counter8_gl_tb.vvp \
+  /Users/you/Documents/WARD/counter8_rtl2gds/counter8_tb.v \
+  /Users/you/Documents/WARD/counter8_rtl2gds/counter8_final.v \
+  /Users/you/Documents/WARD/counter8_rtl2gds/nangate45_sim_models.v
+
+vvp /Users/you/Documents/WARD/counter8_rtl2gds/counter8_gl_tb.vvp</code></pre>
+
+      <h3>View the rendered layout image</h3>
+      <pre><code>open /Users/you/Documents/WARD/counter8_rtl2gds/counter8_layout.png</code></pre>
+
+      <h3>Fix: KLayout blocked by macOS Gatekeeper</h3>
+      <p>Homebrew-installed apps aren't Apple-notarized, so first launch is often refused. This clears the quarantine flag &mdash; no <code class="inline">sudo</code> needed, since the app is user-owned:</p>
+      <pre><code>xattr -dr com.apple.quarantine /Applications/KLayout/klayout.app</code></pre>
+      <p>If macOS still refuses: System Settings &rarr; Privacy &amp; Security &rarr; find the KLayout block notice &rarr; Open Anyway.</p>
+    </section>
+
+    <section id="files">
+      <h2>Output file guide</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Extension</th><th>What it is</th><th>How to open it</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">.v</td><td>Verilog (RTL or netlist), plain text</td><td class="mono">cat file.v</td></tr>
+            <tr><td class="mono">.vvp</td><td>Compiled Icarus simulation</td><td class="mono">vvp file.vvp</td></tr>
+            <tr><td class="mono">.ys</td><td>Yosys script</td><td class="mono">yosys file.ys</td></tr>
+            <tr><td class="mono">.tcl</td><td>OpenROAD driver script</td><td class="mono">openroad file.tcl</td></tr>
+            <tr><td class="mono">.sdc</td><td>Timing constraints, text</td><td class="mono">cat file.sdc</td></tr>
+            <tr><td class="mono">.def</td><td>Placement/routing, ASCII</td><td>text editor, or load in OpenROAD</td></tr>
+            <tr><td class="mono">.odb / .db</td><td>OpenROAD binary database checkpoint</td><td class="mono">read_db file.db (in OpenROAD Tcl)</td></tr>
+            <tr><td class="mono">.spef</td><td>Extracted parasitics, ASCII</td><td class="mono">cat file.spef</td></tr>
+            <tr><td class="mono">.rpt</td><td>DRC report, text</td><td class="mono">cat file.rpt</td></tr>
+            <tr><td class="mono">.gds</td><td>Final layout, binary</td><td>KLayout GUI app</td></tr>
+            <tr><td class="mono">.lyt</td><td>KLayout tech/layer file, XML-ish</td><td>text editor</td></tr>
+            <tr><td class="mono">.png</td><td>Rendered layout image</td><td class="mono">open file.png</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Where everything lives</h3>
+      <div class="filetree">counter8_rtl2gds/
+&nbsp;&nbsp;<span class="fp">counter8.v</span>                  <span class="dim"># RTL</span>
+&nbsp;&nbsp;<span class="fp">counter8_tb.v</span>               <span class="dim"># testbench</span>
+&nbsp;&nbsp;<span class="fp">synth.ys</span>, <span class="fp">equiv_check.ys</span>   <span class="dim"># Yosys scripts</span>
+&nbsp;&nbsp;<span class="fp">counter8_synth.v</span>            <span class="dim"># post-synthesis netlist</span>
+&nbsp;&nbsp;<span class="fp">counter8_run.tcl</span>            <span class="dim"># OpenROAD flow driver</span>
+&nbsp;&nbsp;<span class="fp">counter8.sdc</span>                <span class="dim"># timing constraints</span>
+&nbsp;&nbsp;<span class="fp">counter8_final.{def,v,odb}</span> <span class="dim"># routed outputs</span>
+&nbsp;&nbsp;<span class="fp">results/</span>                    <span class="dim"># per-stage checkpoints (.db) + .spef + DRC .rpt</span>
+&nbsp;&nbsp;<span class="fp">run_gds_merge.py</span>, <span class="fp">def2stream.py</span> <span class="dim"># GDS merge</span>
+&nbsp;&nbsp;<span class="fp">counter8.gds</span>                <span class="dim"># final layout</span>
+&nbsp;&nbsp;<span class="fp">counter8_layout.png</span>         <span class="dim"># rendered snapshot</span>
+&nbsp;&nbsp;<span class="fp">progress.md</span>                 <span class="dim"># agent's running log</span>
+&nbsp;&nbsp;<span class="fp">.venv/</span>                      <span class="dim"># klayout pip module lives here</span></div>
+    </section>
+
+    <section id="results">
+      <h2>Results &amp; Kimi K3 comparison</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Metric</th><th class="num">counter8 (this run)</th><th class="num">Kimi K3 demo</th></tr></thead>
+          <tbody>
+            <tr><td>Die area</td><td class="num">0.002&nbsp;mm&sup2;</td><td class="num">4&nbsp;mm&sup2;</td></tr>
+            <tr><td>Standard cells</td><td class="num">33</td><td class="num">1.46M</td></tr>
+            <tr><td>SRAM</td><td class="num">&mdash;</td><td class="num">0.277&nbsp;MB</td></tr>
+            <tr><td>Clock closure</td><td class="num">1.67&nbsp;GHz (Fmax &asymp;2.7&nbsp;GHz)</td><td class="num">100&nbsp;MHz</td></tr>
+            <tr><td>PDK</td><td class="num">Nangate45</td><td class="num">Nangate45</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Same PDK, roughly 2000&times; smaller die and 44,000&times; fewer cells &mdash; expected for an 8-bit counter versus a full SRAM-backed chip. Not a like-for-like speed claim; a 33-cell design has a trivially short critical path. This run validated the toolchain and verification methodology before attempting anything closer in scale.</p>
+
+      <div class="callout verified">
+        <span class="callout-label">Verification chain</span>
+        RTL testbench <span class="pill">PASSED</span> &rarr; Yosys SAT equivalence <span class="pill">PROVEN</span> &rarr; gate-level sim of the routed netlist <span class="pill">PASSED</span> &rarr; GDS geometry DRC <span class="pill">0 VIOLATIONS</span>. Each stage checked against the one before it.
+      </div>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting log</h2>
+
+      <h3>Bazel build: <code class="inline">no matching manifest for linux/arm64/v8</code></h3>
+      <p>OpenROAD's official Docker base image is amd64-only. Root cause of abandoning Docker for this project.</p>
+
+      <h3>Bazel build: <code class="inline">no such package 'src/sta'</code></h3>
+      <p>Cloned without <code class="inline">--recursive</code>; three git submodules (<code class="inline">src/sta</code>, <code class="inline">third-party/abc</code>, <code class="inline">third-party/slang-elab</code>) were empty. Fix:</p>
+      <pre><code>git submodule update --init --recursive</code></pre>
+
+      <h3>Bazel build: docs/man-page step fails intermittently</h3>
+      <p>Missing <code class="inline">pandoc</code> and <code class="inline">groff</code> (host requirements for the man-pages Bazel rule, not caught by <code class="inline">-bazel</code>-only dependency install). Compounded by a second issue: <strong>Bazel's persistent background server caches your PATH at server-start time</strong> &mdash; installing a tool afterward doesn't help until the server restarts.</p>
+      <pre><code>brew install pandoc groff
+bazelisk shutdown</code></pre>
+      <p>In the end, the docs/man-pages target wasn't even needed &mdash; building just <code class="inline">//:openroad</code> instead of <code class="inline">//:install</code> skips it entirely.</p>
+
+      <h3>KLayout hangs headless on macOS</h3>
+      <p>Even <code class="inline">klayout -zz -v</code> hangs, quarantine removed or not. Use the <code class="inline">klayout</code> pip package instead of the app for any scripted/automated GDS work.</p>
+
+      <h3>macOS Gatekeeper blocks KLayout.app on first open</h3>
+      <p>See the command reference above &mdash; <code class="inline">xattr -dr com.apple.quarantine</code>, no <code class="inline">sudo</code> required.</p>
+    </section>
+
+    <section id="toolchain">
+      <h2>What got installed, and why</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tool</th><th>Installed for</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">bazelisk</td><td>Building OpenROAD natively via Bazel</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">groff</td><td>Man-page generation in the Bazel build</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">pandoc</td><td>Same</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">tcl-tk</td><td>Transitive dependency of Yosys</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">icarus-verilog</td><td>RTL &amp; gate-level simulation</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">yosys</td><td>Synthesis &amp; formal equivalence</td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">klayout (cask)</td><td>GDS merge/DRC &mdash; superseded by the pip module</td><td><span class="pill neutral">unused</span></td></tr>
+            <tr><td class="mono">klayout (pip)</td><td>Actual GDS merge/DRC, in project <code class="inline">.venv</code></td><td><span class="pill">core</span></td></tr>
+            <tr><td class="mono">colima / docker</td><td>Original Docker approach</td><td><span class="pill warn">abandoned</span></td></tr>
+            <tr><td class="mono">bash 5.3</td><td>Required by <code class="inline">claude.sh</code>'s bash 4.2+ syntax</td><td><span class="pill warn">abandoned</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Notably <strong>not</strong> installed: <code class="inline">swig</code>, <code class="inline">qt@5</code>, <code class="inline">or-tools</code> &mdash; needed by the older CMake build path documented in the community, but Bazel fetches its own pinned versions hermetically instead.</p>
+    </section>
+
+    <section id="agent">
+      <h2>Reusable agent</h2>
+      <p>The whole flow above is now encoded as a reusable agent, so the next design doesn't require re-deriving any of this.</p>
+
+      <div class="filetree"><span class="fp">WARD/.claude/agents/spec-to-gds.md</span>   <span class="dim"># subagent definition &mdash; toolchain notes, gotchas, required flow order</span>
+<span class="fp">WARD/bin/spec-to-gds</span>              <span class="dim"># launcher script, added to PATH</span></div>
+
+      <h3>Usage</h3>
+      <pre><code>spec-to-gds &lt;design_name&gt; &lt;spec description...&gt;
+
+# example:
+spec-to-gds shiftreg8 "8-bit shift register, serial-in parallel-out, sync active-high reset, shift-enable input"</code></pre>
+      <p>Launches an unattended Fable&nbsp;5 process (same mechanism proven on counter8: fresh process, <code class="inline">--dangerously-skip-permissions</code>, no sandbox) into a new <code class="inline">&lt;design_name&gt;_rtl2gds/</code> directory under <code class="inline">WARD</code>, carrying forward every gotcha logged above. Requires a new terminal (or <code class="inline">source ~/.zshrc</code>) for the PATH update to take effect.</p>
+      <pre><code>tail -f &lt;design_name&gt;_rtl2gds/progress.md
+tail -f &lt;design_name&gt;_rtl2gds/agent_session.log</code></pre>
+    </section>
+
+    <footer>
+      Reference compiled from the counter8 RTL-to-GDS build session &middot; native OpenROAD, arm64, Nangate45 PDK.
+    </footer>
+  </main>
+</div>

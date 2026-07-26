@@ -1,0 +1,26 @@
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.
+## Done — full RTL-to-GDS complete on Nangate45. Final GDS: `counter8.gds`
+
+The whole flow ran in about 17 minutes of wall clock (most of it Homebrew installs); the OpenROAD PnR itself took ~15 seconds. Every stage passed with independent verification at each step.
+
+**Final results:**
+
+| Metric | Result |
+|---|---|
+| Die area | 45.03 × 44.8 µm = **0.002 mm²** |
+| Standard cells | **33 functional** (8 DFFR_X1 flops, 16 logic gates, 6 timing-repair buffers, 3 clock-tree buffers) + 48 tap + 247 fill |
+| Timing closure | **Closed at 0.6 ns clock (1.67 GHz)** — post-route setup WNS +0.230 ns, hold +0.001 ns, TNS 0, skew 0.002 ns ⇒ Fmax ≈ 2.7 GHz |
+| Cleanliness | 0 router DRVs, 0 antenna violations, 0 KLayout min-width/spacing DRC violations, GDS merge with 0 missing/orphan cells |
+| Power | 0.417 mW @ 1.67 GHz |
+
+**Verification chain** (each stage checked independently): RTL testbench passed → yosys SAT **formal equivalence proven** between RTL and the synthesized netlist → gate-level sim of the final *routed* netlist (with CTS/hold buffers) passed the same testbench → GDS bounding box and layer content verified. A layout render is in `counter8_layout.png`.
+
+**vs. Kimi K3's published demo** (same Nangate45 PDK): their 4 mm² / 100 MHz / 1.46M cells / 0.277 MB SRAM against our 0.002 mm² / 33 cells / no SRAM — roughly **2000× smaller die and 44,000× fewer cells**, as expected for an 8-bit counter vs. a full chip. Ours closes timing at 1.67 GHz, but that's just what a 0.4 ns critical path buys you, not a like-for-like speed claim.
+
+**Notable bumps along the way** (all logged in `progress.md`):
+- A testbench race (reset released exactly on a clock edge) initially flagged a false failure — the RTL was correct.
+- Yosys `check -assert` falsely reported undriven outputs until liberty cells were loaded as blackboxes; the equivalence check also needed `async2sync` plus un-boxing the liberty whitebox modules.
+- The KLayout macOS app hangs when run headless (even `-v`), so I drove the ORFS `def2stream.py` merge through the `klayout` pip module instead — same engine, no GUI.
+- Nangate45 came from the OpenROAD repo's own `test/Nangate45` kit; only the stdcell GDS, `def2stream.py`, and the KLayout tech file were fetched from OpenROAD-flow-scripts (three raw files, no clone).
+
+Key files: `counter8.gds` (final layout), `counter8.v` / `counter8_synth.v` / `counter8_final.v` (RTL → synth → routed netlists), `counter8_final.def/.odb`, `openroad_flow.log`, `progress.md` (full stage-by-stage log with metrics), and rerunnable scripts (`synth.ys`, `equiv_check.ys`, `counter8_run.tcl`, `run_gds_merge.py`).

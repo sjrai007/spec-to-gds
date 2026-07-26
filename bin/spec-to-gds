@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# spec-to-gds: launch an unattended Fable 5 Claude Code agent that takes a
+# digital-logic spec through the full RTL-to-GDS flow (Yosys synthesis,
+# formal equivalence check, native OpenROAD place-and-route, KLayout GDS
+# merge, post-layout verification) on this machine.
+#
+# Usage:
+#   spec-to-gds <design_name> <spec description...>
+#   spec-to-gds counter8 "8-bit up-counter, async active-low reset, sync enable"
+#
+# The agent runs with --dangerously-skip-permissions in a fresh, unrestricted
+# process (no sandbox) - same mechanism used for the counter8 run. Output is
+# logged to <project_dir>/agent_session.log; progress to <project_dir>/progress.md.
+
+set -euo pipefail
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: spec-to-gds <design_name> <spec description...>" >&2
+    exit 1
+fi
+
+DESIGN_NAME="$1"; shift
+SPEC="$*"
+
+WARD_ROOT="/Users/you/Documents/WARD"
+PROJECT_DIR="${WARD_ROOT}/${DESIGN_NAME}_rtl2gds"
+AGENT_DEFINITION="${WARD_ROOT}/.claude/agents/spec-to-gds.md"
+
+mkdir -p "${PROJECT_DIR}"
+
+if [[ ! -f "${AGENT_DEFINITION}" ]]; then
+    echo "Warning: ${AGENT_DEFINITION} not found - launching with an inline prompt only." >&2
+fi
+
+PROMPT=$(cat <<EOF
+You are doing a full RTL-to-GDS ASIC design flow autonomously, unattended.
+Work in this directory: ${PROJECT_DIR}
+
+Follow the spec-to-gds agent instructions at ${AGENT_DEFINITION} if that file
+exists (read it first, it has the full toolchain notes, known gotchas, and
+the required flow order) - otherwise proceed using your own best judgement
+for a standard synthesis -> formal-equiv -> OpenROAD PnR -> KLayout GDS flow
+targeting the Nangate45 kit shipped in /Users/you/Documents/WARD/OpenROAD/test/Nangate45/.
+
+DESIGN NAME: ${DESIGN_NAME}
+
+SPEC:
+${SPEC}
+
+You have full shell/file access, no permission prompts, and internet access.
+Keep progress.md updated live as you work, not just at the end. Produce a
+final .gds plus a summary: cell count, die area, timing closure (WNS/TNS/
+skew, Fmax), power, and DRC/DRV/antenna violation counts.
+EOF
+)
+
+echo "Launching spec-to-gds agent for '${DESIGN_NAME}' in ${PROJECT_DIR} ..."
+cd "${PROJECT_DIR}"
+ANTHROPIC_MODEL=claude-fable-5 claude --dangerously-skip-permissions -p "${PROMPT}" \
+    > "${PROJECT_DIR}/agent_session.log" 2>&1 &
+
+echo "Started in background (PID $!). Watch progress with:"
+echo "  tail -f ${PROJECT_DIR}/progress.md"
+echo "  tail -f ${PROJECT_DIR}/agent_session.log"

@@ -1,0 +1,12 @@
+# Yosys synthesis script: counter8 -> Nangate45 mapped netlist
+read_liberty -lib /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+read_verilog counter8.v
+hierarchy -check -top counter8
+synth -top counter8 -flatten
+dfflibmap -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+abc -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib -D 600
+setundef -zero
+opt_clean -purge
+stat -liberty /Users/you/Documents/WARD/OpenROAD/test/Nangate45/Nangate45_typ.lib
+check -assert
+write_verilog -noattr counter8_synth.v
